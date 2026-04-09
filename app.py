@@ -25,7 +25,7 @@ import tempfile
 # import spaces
 # USE_ZEROGPU = True
 
-MODEL_REPO = "TonKubo132027/Leaf-CT-Segmentation-Model"
+MODEL_REPO = "WorasitSangjan/Leaf-CT-Segmentation-Model"
 MODEL_FILE = "best_model.pth"
 DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -540,6 +540,7 @@ thead, thead tr, thead th, th {
 [data-testid="dataframe"] thead th,
 [data-testid="dataframe"] thead th span,
 [data-testid="dataframe"] thead th * {
+    background: #e8f5e9 !important;
     color: #111111 !important;
     -webkit-text-fill-color: #111111 !important;
 }
@@ -866,7 +867,13 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                 });
             }
             function fixTableHeaders() {
-                document.querySelectorAll('table thead th, table thead th *, table th, table th *').forEach(function(el) {
+                document.querySelectorAll('table thead th, table th').forEach(function(el) {
+                    el.style.setProperty('background', '#e8f5e9', 'important');
+                    el.style.setProperty('color', '#111111', 'important');
+                    el.style.setProperty('-webkit-text-fill-color', '#111111', 'important');
+                });
+                document.querySelectorAll('table thead th *, table th *').forEach(function(el) {
+                    el.style.setProperty('background', 'transparent', 'important');
                     el.style.setProperty('color', '#111111', 'important');
                     el.style.setProperty('-webkit-text-fill-color', '#111111', 'important');
                 });
@@ -991,8 +998,11 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                 });
             }
             fixTabColors();
+            fixTableHeaders();
             var tabObserver = new MutationObserver(function() { fixTabColors(); });
             tabObserver.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['aria-selected', 'class'] });
+            var tableObserver = new MutationObserver(function() { fixTableHeaders(); });
+            tableObserver.observe(document.body, { subtree: true, childList: true });
             return [];
         }"""
     )
