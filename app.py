@@ -587,7 +587,7 @@ td, tbody td, tr td {
 #main-row, #stack-main-row { border: none !important; padding: 0 !important; background: transparent !important; box-shadow: none !important; }
 
 /* ── STACK FILE UPLOAD — large drop zone ────────────────────────────────── */
-#stack-file-upload, #stack-file-upload > div, #stack-file-upload .wrap { min-height: unset !important; height: 50px !important; max-height: 50px !important; }
+#stack-file-upload, #stack-file-upload > div, #stack-file-upload .wrap { min-height: unset !important; height: 70px !important; max-height: 70px !important; }
 #stack-file-upload .wrap { flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 8px !important; }
 #stack-file-upload .wrap p { margin: 0 !important; }
 #stack-file-upload .wrap svg { width: 20px !important; height: 20px !important; }
@@ -759,7 +759,7 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                     stack_file = gr.File(
                         label="Upload CT Stack (.tif / .tiff)",
                         file_types=[".tif", ".tiff"],
-                        height=50,
+                        height=90,
                         elem_id="stack-file-upload",
                     )
                     stack_preview = gr.Image(
@@ -793,11 +793,11 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                 )
                 gr.Markdown("## Save Output")
                 with gr.Row():
-                    stack_dl_csv          = gr.File(label="1. Area Statistics — All Slices", interactive=False, elem_id="stack-dl-csv", height=80)
-                    stack_dl_perslice_csv = gr.File(label="2. Area Statistics — Per Slice", interactive=False, elem_id="stack-dl-perslice", height=80)
-                    stack_dl_label        = gr.File(label="3. Label Mask — All Slices", interactive=False, elem_id="stack-dl-label", height=80)
-                    stack_dl_color        = gr.File(label="4. Color Mask — All Slices", interactive=False, elem_id="stack-dl-color", height=80)
-                    stack_dl_overlay      = gr.File(label="5. Overlay Image — All Slices", interactive=False, elem_id="stack-dl-overlay", height=80)
+                    stack_dl_csv          = gr.File(label="1. Area All Slices", interactive=False, elem_id="stack-dl-csv", height=80)
+                    stack_dl_perslice_csv = gr.File(label="2. Area Per Slice", interactive=False, elem_id="stack-dl-perslice", height=80)
+                    stack_dl_label        = gr.File(label="3. Label All Slices", interactive=False, elem_id="stack-dl-label", height=80)
+                    stack_dl_color        = gr.File(label="4. ColorAll Slices", interactive=False, elem_id="stack-dl-color", height=80)
+                    stack_dl_overlay      = gr.File(label="5. Overlay All Slices", interactive=False, elem_id="stack-dl-overlay", height=80)
 
             stack_file.upload(
                 fn=preview_and_store_stack,
