@@ -714,7 +714,7 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                         with gr.Tab("Color Mask"):
                             output_color = gr.Image(type="pil", label="Color Mask", interactive=False, height=500, elem_id="img-color")
                         with gr.Tab("Overlay"):
-                            output_overlay = gr.Image(type="pil", label="Overlay (Mask on original)", interactive=False, height=500, elem_id="img-overlay")
+                            output_overlay = gr.Image(type="pil", label="Overlay Image( Mask on original)", interactive=False, height=500, elem_id="img-overlay")
 
             with gr.Row():
                 submit_btn = gr.Button("Run Segmentation", variant="primary", elem_id="run-btn")
@@ -730,10 +730,10 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                 )
                 gr.Markdown("## Save Output")
                 with gr.Row():
-                    dl_csv     = gr.File(label="1. Area Statistics (CSV)",         interactive=False, elem_id="dl-csv",     height=80)
-                    dl_label   = gr.File(label="2. Segmentation Mask — Grayscale", interactive=False, elem_id="dl-label",   height=80)
-                    dl_color   = gr.File(label="3. Segmentation Mask — Color",     interactive=False, elem_id="dl-color",   height=80)
-                    dl_overlay = gr.File(label="4. Overlay Image",                 interactive=False, elem_id="dl-overlay", height=80)
+                    dl_csv     = gr.File(label="1. Area Statistics", interactive=False, elem_id="dl-csv", height=80)
+                    dl_label   = gr.File(label="2. Label Mask", interactive=False, elem_id="dl-label", height=80)
+                    dl_color   = gr.File(label="3. Color Mask", interactive=False, elem_id="dl-color", height=80)
+                    dl_overlay = gr.File(label="4. Overlay Image", interactive=False, elem_id="dl-overlay", height=80)
 
             input_image.upload(
                 fn=lambda img: (img, "✅ Image uploaded — Click 'Run Segmentation' to process."),
@@ -777,7 +777,7 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                         with gr.Tab("Color Mask"):
                             stack_output_color = gr.Image(type="pil", label="Color Mask (Middle slice)", interactive=False, height=500, elem_id="img-stack-color")
                         with gr.Tab("Overlay"):
-                            stack_output_overlay = gr.Image(type="pil", label="Overlay (Middle slice)", interactive=False, height=500, elem_id="img-stack-overlay")
+                            stack_output_overlay = gr.Image(type="pil", label="Overlay Image (Middle slice)", interactive=False, height=500, elem_id="img-stack-overlay")
 
             with gr.Row():
                 stack_submit_btn = gr.Button("Run Segmentation on Stack", variant="primary", elem_id="stack-run-btn")
@@ -793,11 +793,11 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
                 )
                 gr.Markdown("## Save Output")
                 with gr.Row():
-                    stack_dl_csv          = gr.File(label="1. Area Statistics — All Slices (CSV)", interactive=False, elem_id="stack-dl-csv",        height=80)
-                    stack_dl_perslice_csv = gr.File(label="2. Area Statistics — Per Slice (CSV)",           interactive=False, elem_id="stack-dl-perslice",    height=80)
-                    stack_dl_label        = gr.File(label="3. Label Mask Stack — All Slices (.tif)",        interactive=False, elem_id="stack-dl-label",       height=80)
-                    stack_dl_color        = gr.File(label="4. Color Mask Stack — All Slices (.tif)",        interactive=False, elem_id="stack-dl-color",       height=80)
-                    stack_dl_overlay      = gr.File(label="5. Overlay Stack — All Slices (.tif)",           interactive=False, elem_id="stack-dl-overlay",     height=80)
+                    stack_dl_csv          = gr.File(label="1. Area Statistics — All Slices", interactive=False, elem_id="stack-dl-csv", height=80)
+                    stack_dl_perslice_csv = gr.File(label="2. Area Statistics — Per Slice", interactive=False, elem_id="stack-dl-perslice", height=80)
+                    stack_dl_label        = gr.File(label="3. Label Mask — All Slices", interactive=False, elem_id="stack-dl-label", height=80)
+                    stack_dl_color        = gr.File(label="4. Color Mask — All Slices", interactive=False, elem_id="stack-dl-color", height=80)
+                    stack_dl_overlay      = gr.File(label="5. Overlay Image — All Slices", interactive=False, elem_id="stack-dl-overlay", height=80)
 
             stack_file.upload(
                 fn=preview_and_store_stack,
