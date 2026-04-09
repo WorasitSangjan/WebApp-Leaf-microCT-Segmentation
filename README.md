@@ -11,7 +11,7 @@ pinned: true
 
 # Leaf micro-CT Scan Segmentation
 
-Web application and utilization for automatic leaf micro-CT scan segmentation using a state-of-the-art transformer-based models.
+Web application and utilization for automatic leaf micro-CT scan segmentation using a state-of-the-art transformer-based model.
 
 ## How to Run
 
