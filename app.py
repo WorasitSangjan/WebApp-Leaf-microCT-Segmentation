@@ -552,6 +552,12 @@ thead, thead tr, thead th, th {
     color: #111111 !important;
     -webkit-text-fill-color: #111111 !important;
 }
+#area-table thead th, #area-table thead th span, #area-table thead th *,
+#stack-area-table thead th, #stack-area-table thead th span, #stack-area-table thead th * {
+    background: #e8f5e9 !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
 tbody, tbody tr, tr {
     background: #ffffff !important;
 }
