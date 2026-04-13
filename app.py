@@ -759,7 +759,14 @@ def load_uploaded_file(f):
 # ── GRADIO UI ─────────────────────────────────────────────────────────────────
 EMPTY_TABLE = [["—", "—", "—"]] * NUM_CLASSES
 
-with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
+with gr.Blocks(
+    title="Leaf CT Scan Segmentation",
+    theme=gr.themes.Default(
+        primary_hue=gr.themes.colors.green,
+        neutral_hue=gr.themes.colors.gray,
+    ),
+    css=css,
+) as demo:
 
     gr.HTML("""
         <h1>Leaf CT Scan Segmentation</h1>
@@ -925,12 +932,6 @@ with gr.Blocks(title="Leaf CT Scan Segmentation") as demo:
 
 # ── LAUNCH ────────────────────────────────────────────────────────────────────
 demo.launch(
-    server_name="0.0.0.0",
     share=False,
     debug=False,
-    theme=gr.themes.Default(
-        primary_hue=gr.themes.colors.green,
-        neutral_hue=gr.themes.colors.gray,
-    ),
-    css=css,
 )
