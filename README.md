@@ -38,21 +38,49 @@ Run on a free T4 GPU:
 
 ### Option 3 — Run Locally (Python 3.10+)
 
-We strongly recommend creating a Python virtual environment to run the application to avoid any dependency conflicts:
+For users who prefer to run the application on their own computers instead of the cloud, follow these detailed steps using your computer's **Terminal** (Mac/Linux) or **Command Prompt / PowerShell** (Windows).
 
+**Prerequisites:**
+- Ensure you have **Python 3.10 or newer** installed ([Download Python](https://www.python.org/downloads/)).
+- Ensure you have **Git** installed ([Download Git](https://git-scm.com/downloads)). *(Alternatively, you can click "Code" > "Download ZIP" at the top of this page and extract it).*
+
+**Step-by-step Instructions:**
+
+**1. Download the repository**
+Open your Terminal or Command Prompt and run the following commands:
 ```bash
-# 1. Clone the repository
 git clone https://github.com/WorasitSangjan/WebApp-Leaf-microCT-Segmentation.git
 cd WebApp-Leaf-microCT-Segmentation
+```
 
-# 2. Create and activate a Virtual Environment
+**2. Create an isolated Python environment**
+This prevents dependency conflicts with other Python software on your computer:
+```bash
+# On Mac/Linux:
 python3 -m venv venv
-source venv/bin/activate    # On Windows, use `venv\Scripts\activate`
+source venv/bin/activate
 
-# 3. Install requirements and run
+# On Windows:
+python -m venv venv
+venv\\Scripts\\activate
+```
+
+**3. Install requirements**
+With the environment activated, download the necessary packages:
+```bash
 pip install -r requirements.txt
+```
+
+**4. Start the application**
+Run the main script to start the web server:
+```bash
 python app.py
 ```
+
+**5. Open the app**
+Once the terminal says `Running on local URL:  http://127.0.0.1:7860/`, open your favorite web browser (Chrome, Firefox, Safari) and navigate to that link!
+
+> **To stop the application:** Go back to your terminal window and press `Ctrl + C`.
 
 ## Features
 - **Single Image** — upload a PNG/JPG/TIF and run segmentation
