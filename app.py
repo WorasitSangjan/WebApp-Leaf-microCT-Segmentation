@@ -759,14 +759,20 @@ def load_uploaded_file(f):
 # ── GRADIO UI ─────────────────────────────────────────────────────────────────
 EMPTY_TABLE = [["—", "—", "—"]] * NUM_CLASSES
 
-with gr.Blocks(
-    title="Leaf CT Scan Segmentation",
-    theme=gr.themes.Default(
-        primary_hue=gr.themes.colors.green,
-        neutral_hue=gr.themes.colors.gray,
-    ),
-    css=css,
-) as demo:
+# ── DYNAMIC GRADIO VERSION HANDLING ───────────────────────────────────────────
+v_major = int(gr.__version__.split(".")[0])
+theme_obj = gr.themes.Default(primary_hue=gr.themes.colors.green, neutral_hue=gr.themes.colors.gray)
+
+blocks_kwargs = {"title": "Leaf CT Scan Segmentation"}
+launch_kwargs = {"debug": False}
+
+if v_major >= 6:
+    launch_kwargs.update({"theme": theme_obj, "css": css})
+else:
+    blocks_kwargs.update({"theme": theme_obj, "css": css})
+
+
+with gr.Blocks(**blocks_kwargs) as demo:
 
     gr.HTML("""
         <h1>Leaf CT Scan Segmentation</h1>
@@ -931,7 +937,4 @@ with gr.Blocks(
 
 
 # ── LAUNCH ────────────────────────────────────────────────────────────────────
-demo.launch(
-    share=False,
-    debug=False,
-)
+demo.launch(**launch_kwargs)
