@@ -1,3 +1,7 @@
+# Web application for Leaf microCT Segmentation
+# Author: Worasit Sanjgan
+# Date: 7 April 2026
+
 import sys
 
 # Suppress Python 3.13 asyncio cleanup noise (Invalid file descriptor: -1)
