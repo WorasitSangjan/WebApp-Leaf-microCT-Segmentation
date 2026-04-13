@@ -22,7 +22,7 @@ Visit the live app — no setup required:
 ### Option 2 — Google Colab (GPU, recommended)
 Run on a free T4 GPU:
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WorasitSangjan/App-Leaf-microCT-Segmentation/blob/main/run_colab.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WorasitSangjan/WebApp-Leaf-microCT-Segmentation/blob/main/run_colab.ipynb)
 
 1. Open the notebook above
 2. Set runtime to **T4 GPU** (Runtime → Change runtime type)
@@ -31,8 +31,8 @@ Run on a free T4 GPU:
 
 ### Option 3 — Run Locally
 ```bash
-git clone https://github.com/WorasitSangjan/App-Leaf-microCT-Segmentation.git
-cd App-Leaf-microCT-Segmentation
+git clone https://github.com/WorasitSangjan/WebApp-Leaf-microCT-Segmentation.git
+cd WebApp-Leaf-microCT-Segmentation
 pip install -r requirements.txt
 python app.py
 ```
