@@ -11,7 +11,14 @@ pinned: true
 
 # Leaf micro-CT Scan Segmentation
 
-Web application and utilization for automatic leaf micro-CT scan segmentation using a state-of-the-art transformer-based model.
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen.svg)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![Platform](https://img.shields.io/badge/Platform-Gradio%20%7C%20Colab-orange.svg)](https://gradio.app/)
+![Science](https://img.shields.io/badge/Science-Plant%20Phenomics-green.svg)
+![Research](https://img.shields.io/badge/Research-WSU--Phenomics-navy.svg)
+
+Web application and utilization for automatic leaf micro-CT scan segmentation using a transformer-based model.
 
 ## How to Run
 
@@ -24,8 +31,8 @@ Run on a free T4 GPU:
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WorasitSangjan/WebApp-Leaf-microCT-Segmentation/blob/main/run_colab.ipynb)
 
-1. Click the "Google Colab" button above 
-2. In the Google clob notebook, set runtime to **T4 GPU** (Runtime → Change runtime type)
+1. Click the "Open in Colab" button above 
+2. In the Google Colab notebook, set runtime to **T4 GPU** (Runtime → Change runtime type)
 3. Click **Run All**
 4. Click the `gradio.live` link that appears
 
