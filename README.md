@@ -16,7 +16,7 @@ pinned: true
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Gradio%20%7C%20Colab-orange.svg)](https://gradio.app/)
 ![Science](https://img.shields.io/badge/Science-Plant%20Phenomics-green.svg)
-![Research](https://img.shields.io/badge/Research-WSU--Phenomics-navy.svg)
+![Research](https://img.shields.io/badge/Research-USDA--ARS-navy.svg)
 
 Web application and utilization for automatic leaf micro-CT scan segmentation using a transformer-based model.
 
