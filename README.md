@@ -20,6 +20,8 @@ pinned: true
 
 Web application and utilization for automatic leaf micro-CT scan segmentation using a transformer-based model.
 
+📖 **[User Manual](./MANUAL.md)** — full step-by-step guide for all deployment options, outputs, and troubleshooting.
+
 ## How to Run
 
 ### Option 1 — HuggingFace Spaces (CPU)
