@@ -59,6 +59,13 @@ git clone https://github.com/WorasitSangjan/WebApp-Leaf-microCT-Segmentation.git
 cd WebApp-Leaf-microCT-Segmentation
 ```
 
+---
+
+## Contact
+
+- **Lead Author:** Worasit Sangjan - worasitsangjan.ws@gmail.com
+- **Corresponding Author:** Devin A. Rippner - devin.rippner@usda.gov
+
 **2. Create an isolated Python environment**
 This prevents dependency conflicts with other Python software on your computer:
 ```bash
