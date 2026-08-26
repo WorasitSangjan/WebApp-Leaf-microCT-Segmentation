@@ -961,6 +961,12 @@ with gr.Blocks(**blocks_kwargs) as demo:
                 <a href="https://github.com/WorasitSangjan/WebApp-Leaf-microCT-Segmentation#option-3--run-locally-python-310" target="_blank">Your Local Computer</a>
             </p>
         </div>
+        <div class="deployment-block">
+            <p>
+                <strong>Dataset:</strong> Browse curated plant leaf X-ray micro-CT datasets, preview images, segmentation labels, metadata, and repository links via:
+                <a href="https://leafcthub.github.io/" target="_blank">Leaf CT Hub</a>
+            </p>
+        </div>
 
     """)
 
