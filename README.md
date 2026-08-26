@@ -126,3 +126,10 @@ Select any of the four models from the **Segmentation Model** list in the app. A
 
 - **Weights repo**: [WorasitSangjan/Leaf-CT-Segmentation-Model](https://huggingface.co/WorasitSangjan/Leaf-CT-Segmentation-Model)
 - Weights download lazily from the HuggingFace Hub the first time a model is selected, then are cached. The four `.pth` files must be uploaded to the weights repo with the exact filenames above.
+
+- ---
+
+## Contact
+
+- **Lead Author:** Worasit Sangjan - worasitsangjan.ws@gmail.com
+- **Corresponding Author:** Devin A. Rippner - devin.rippner@usda.gov
