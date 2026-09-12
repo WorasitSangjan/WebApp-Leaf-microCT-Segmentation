@@ -934,10 +934,17 @@ EMPTY_TABLE = [["—", "—", "—"]] * NUM_CLASSES
 # ── DYNAMIC GRADIO VERSION HANDLING ───────────────────────────────────────────
 theme_obj = gr.themes.Default(primary_hue=gr.themes.colors.green, neutral_hue=gr.themes.colors.gray)
 
+goatcounter_head = """
+<script data-goatcounter="https://leafctwebapp.goatcounter.com/count"
+        data-goatcounter-settings='{"allow_frame": true}'
+        async src="//gc.zgo.at/count.js"></script>
+"""
+
 blocks_kwargs = {
     "title": "Leaf CT Scan Segmentation",
     "theme": theme_obj,
     "css": css,
+    "head": goatcounter_head,
 }
 
 launch_kwargs = {
