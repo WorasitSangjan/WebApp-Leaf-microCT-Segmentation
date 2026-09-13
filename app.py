@@ -957,6 +957,8 @@ launch_kwargs = {
 with gr.Blocks(**blocks_kwargs) as demo:
 
     gr.HTML("""
+        <img src="https://leafctwebapp.goatcounter.com/count?p=/huggingface-space&t=Leaf%20CT%20Segmentation%20Webapp"
+             alt="" width="1" height="1" style="position:absolute; left:-9999px; width:1px; height:1px;">
         <h1>Leaf CT Scan Segmentation</h1>
         <p>Automatic leaf CT scan segmentation with a choice of transformer-based models (EoMT/DINOv3, Mask2Former/Swin-B, SegFormer-B4, FPN/MiT-B4).</p>
         <p><strong>Features:</strong> Upload a single image or a multi-slice TIFF stack to visualize tissue segmentation and export area statistics.
