@@ -105,6 +105,11 @@ Once the terminal says `Running on local URL:  http://127.0.0.1:7860/`, open you
 | Full Stack TIFF | All slice masks as multi-page TIFF (stack only) |
 
 ## Tissue Classes
+
+The app has two tabs, one per segmentation version.
+
+**5 classes** (four models)
+
 | Class | Color |
 |---|---|
 | Background | Black |
@@ -112,6 +117,20 @@ Once the terminal says `Running on local URL:  http://127.0.0.1:7860/`, open you
 | Vascular Region | Green |
 | Mesophyll | Blue |
 | Air Space | Yellow |
+
+**7 classes** (Mask2Former, Swin-B)
+
+| Class | Color |
+|---|---|
+| Background | Black |
+| Epidermis | Red |
+| Bundle Sheath | Orange |
+| Vascular Tissue | Purple |
+| Palisade Mesophyll | Green |
+| Spongy Mesophyll | Blue |
+| Air Space | Yellow |
+
+The 7-class statistics table also reports a combined **Vein** row (Bundle Sheath + Vascular Tissue). The two vein classes are the hardest to tell apart, so the combined row is the more reliable number.
 
 ## Models
 
@@ -124,8 +143,16 @@ Select any of the four models from the **Segmentation Model** list in the app. A
 | SegFormer-B4 | SegFormer | MiT-B4 | `Segformer_B4.pth` | ~490 MB |
 | FPN (MiT-B4) | Feature Pyramid Network | MiT-B4 | `FPN_MiTB4.pth` | ~480 MB |
 
+**7-class model**
+
+| Model | Architecture | Backbone | Weights file | Approx. size |
+|---|---|---|---|---|
+| Mask2Former (Swin-B), 7 classes | Mask2Former | Swin-Base | `Mask2Former_SwinB_7class.pth` | ~430 MB |
+
+It was trained with the datasets from [Leaf CT Hub](https://leafcthub.github.io/) as the base training data. On held-out leaves (not used in training) it reaches a mean IoU of 0.76. **Caution:** Bundle Sheath (IoU 0.62) and Vascular Tissue (0.52) are often confused with each other, so their separate accuracy is lower; counted together as one vein class (Bundle Sheath + Vascular Tissue) the IoU is 0.80, so use the combined **Vein** row for measurements. Each 320 × 320 patch is normalised separately, and 16/32-bit TIFF slices are rescaled to 8-bit automatically.
+
 - **Weights repo**: [WorasitSangjan/Leaf-CT-Segmentation-Model](https://huggingface.co/WorasitSangjan/Leaf-CT-Segmentation-Model)
-- Weights download lazily from the HuggingFace Hub the first time a model is selected, then are cached. The four `.pth` files must be uploaded to the weights repo with the exact filenames above.
+- Weights download lazily from the HuggingFace Hub the first time a model is selected, then are cached. The `.pth` files must be uploaded to the weights repo with the exact filenames above.
 
 - ---
 

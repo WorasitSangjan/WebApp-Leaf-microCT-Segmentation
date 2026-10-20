@@ -23,12 +23,12 @@
 
 The Leaf micro-CT Scan Segmentation Web Application is an open-source, browser-based tool that automates the identification and measurement of leaf tissue regions in X-ray micro-computed tomography (micro-CT) images. The application requires no programming skills and is accessible to plant biologists, agronomists, and phenotyping researchers.
 
-The tool offers a choice of four transformer-based deep learning models — **Mask2Former (Swin-B)**, **SegFormer-B4**, **EoMT (DINOv3 ViT-L)**, and **FPN (MiT-B4)** — selectable from a radio button panel. Each model segments every image pixel into one of five anatomical classes, then calculates area and volume statistics for quantitative analysis. See [Section 7](#7-model-information) for model recommendations.
+The tool offers a choice of four transformer-based deep learning models — **Mask2Former (Swin-B)**, **SegFormer-B4**, **EoMT (DINOv3 ViT-L)**, and **FPN (MiT-B4)** — selectable from a radio button panel. The app has two tabs: **5 Classes** (all four models) and **7 Classes** (Mask2Former, with Bundle Sheath, Vascular Tissue, Palisade Mesophyll and Spongy Mesophyll as separate classes). Each model segments every image pixel into one of the anatomical classes of its tab, then calculates area and volume statistics for quantitative analysis. See [Section 7](#7-model-information) for model recommendations.
 
 ### 1.1 What This Tool Does
 
 - Accepts single micro-CT slice images (PNG, JPG, or TIF) or multi-slice TIFF stacks.
-- Automatically segments five tissue classes: Background, Epidermis, Vascular Region, Mesophyll, and Air Space.
+- Automatically segments five tissue classes (Background, Epidermis, Vascular Region, Mesophyll, Air Space) in the **5 Classes** tab, or seven (Background, Epidermis, Bundle Sheath, Vascular Tissue, Palisade Mesophyll, Spongy Mesophyll, Air Space) in the **7 Classes** tab.
 - Produces three output visualizations: a class label mask, a color-coded mask, and an overlay on the original image.
 - Exports pixel-level area statistics and, for stacks, full volumetric statistics as downloadable CSV files.
 
@@ -169,8 +169,8 @@ Three visualizations appear in the tabbed results panel:
 
 | Result Tab | Description |
 |---|---|
-| **Class Label** | Grayscale mask where pixel intensity encodes class index (0–4). Background = 0, Epidermis = 50, Vascular Region = 100, Mesophyll = 150, Air Space = 200. |
-| **Color Mask** | Per-class color visualization. Background = black, Epidermis = red, Vascular Region = green, Mesophyll = blue, Air Space = yellow. |
+| **Class Label** | Grayscale mask where pixel intensity encodes class index. 5 classes: Background = 0, Epidermis = 50, Vascular Region = 100, Mesophyll = 150, Air Space = 200. 7 classes: index × 40 (Background = 0, Epidermis = 40, Bundle Sheath = 80, Vascular Tissue = 120, Palisade = 160, Spongy = 200, Air Space = 240). |
+| **Color Mask** | Per-class color visualization. 5 classes: Background = black, Epidermis = red, Vascular Region = green, Mesophyll = blue, Air Space = yellow. 7 classes: Background = black, Epidermis = red, Bundle Sheath = orange, Vascular Tissue = purple, Palisade = green, Spongy = blue, Air Space = yellow. |
 | **Overlay** | Original greyscale CT image blended with the color mask at 50% opacity. Useful for verifying tissue boundaries. |
 
 ### Step 5 — Review Area Statistics
@@ -307,13 +307,33 @@ The application provides four interchangeable segmentation models, selectable fr
 | **EoMT (DINOv3 ViT-L)** | Encoder-only Mask Transformer | DINOv3 ViT-L/16 | `EoMT_DinoV3.pth` | ~3.5 GB |
 | **FPN (MiT-B4)** | Feature Pyramid Network | MiT-B4 | `FPN_MiTB4.pth` | ~480 MB |
 
+### 7.3 The 7-class model
+
+The **7 Classes** tab uses a Mask2Former (Swin-B) model with weights file `Mask2Former_SwinB_7class.pth` (~430 MB). It was trained with the datasets from [Leaf CT Hub](https://leafcthub.github.io/) as the base training data.
+
+| Class | Held-out IoU |
+|---|---|
+| Background | 0.98 |
+| Epidermis | 0.83 |
+| Palisade Mesophyll | 0.81 |
+| Air Space | 0.81 |
+| Spongy Mesophyll | 0.72 |
+| Bundle Sheath | 0.62 |
+| Vascular Tissue | 0.52 |
+| **Mean IoU** | **0.76** |
+| **Vein (Bundle Sheath + Vascular Tissue combined)** | **0.80** |
+
+The scores come from held-out leaves that were not used in training.
+
+> **Caution — Bundle Sheath and Vascular Tissue.** These two classes are often confused with each other, so their accuracy is lower when they are counted separately (IoU about 0.62 and 0.52). Counted together as one vein class, the IoU rises to about 0.80. For measurements, use the combined **Vein** row that the statistics table adds. In this tab each 320 × 320 patch is normalised separately (as in training), and 16- or 32-bit TIFF slices are rescaled to 8-bit automatically (0.5–99.5 percentile range of each slice).
+
 **Shared properties**
 
 | Parameter | Details |
 |---|---|
 | **Input channels** | 1 (grayscale). EoMT and SegFormer use a 1×3 conv adapter; Mask2Former repeats the channel to RGB; FPN's MiT-B4 encoder takes 1 channel directly. |
 | **Patch size** | 320 × 320 px (stride = 80 px during inference) |
-| **Number of classes** | 5 (Background, Epidermis, Vascular Region, Mesophyll, Air Space) |
+| **Number of classes** | 5 (Background, Epidermis, Vascular Region, Mesophyll, Air Space) in the 5-class tab; 7 (Background, Epidermis, Bundle Sheath, Vascular Tissue, Palisade Mesophyll, Spongy Mesophyll, Air Space) in the 7-class tab |
 | **Model weights** | [WorasitSangjan/Leaf-CT-Segmentation-Model](https://huggingface.co/WorasitSangjan/Leaf-CT-Segmentation-Model) |
 | **Hardware target** | CUDA GPU → Apple MPS → CPU (automatic detection) |
 | **Inference strategy** | Gaussian-weighted patch stitching to reduce boundary artifacts |

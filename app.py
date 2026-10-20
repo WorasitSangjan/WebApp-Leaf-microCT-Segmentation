@@ -44,6 +44,20 @@ CLASS_COLORS = np.array([
     [255, 230, 50 ],   # Air Space  — yellow
 ], dtype=np.uint8)
 
+# 7-class scheme (new model): Bundle_Sheath and Vascular_Tissue are separate classes and the
+# mesophyll is split into Palisade and Spongy mesophyll.
+CLASS_NAMES_7  = ["Background", "Epidermis", "Bundle_Sheath", "Vascular_Tissue",
+                  "Palisade_Mesophyll", "Spongy_Mesophyll", "Air_Space"]
+CLASS_COLORS_7 = np.array([
+    [0,   0,   0  ],   # Background         — black
+    [255, 100, 100],   # Epidermis          — red
+    [255, 165, 0  ],   # Bundle sheath      — orange
+    [160, 70,  200],   # Vascular tissue    — purple
+    [80,  180, 80 ],   # Palisade mesophyll — green
+    [100, 100, 255],   # Spongy mesophyll   — blue
+    [255, 230, 50 ],   # Air space          — yellow
+], dtype=np.uint8)
+
 EXAMPLE_PATHS = [
     ("examples/Lantana.png",  "Lantana"),
     ("examples/Olive.png",    "Olive"),
@@ -169,7 +183,8 @@ def _build_fpn(num_classes):
 
 
 # ── MODEL REGISTRY ────────────────────────────────────────────────────────────
-# Display name → (HuggingFace Hub filename, builder). Upload the four .pth files
+# The app has two segmentation schemes (5 classes and 7 classes); each has its own classes,
+# colours and models. Display name → (HuggingFace Hub filename, builder). Upload the .pth files
 # to MODEL_REPO with these exact filenames. Weights download lazily on first use.
 MODELS = {
     "Mask2Former (Swin-B)": ("Mask2Former_SwinB.pth", lambda n: Mask2FormerSwinB(num_classes=n)),
@@ -188,32 +203,101 @@ MODEL_LABELS = {
 }
 LABEL_TO_MODEL = {v: k for k, v in MODEL_LABELS.items()}
 
+# 7-class model: Mask2Former (Swin-B), the best of the four architectures tested.
+MODELS_7 = {
+    "Mask2Former (Swin-B)": ("Mask2Former_SwinB_7class.pth", lambda n: Mask2FormerSwinB(num_classes=n)),
+}
+DEFAULT_MODEL_7 = "Mask2Former (Swin-B)"
+MODEL_LABELS_7 = {
+    "Mask2Former (Swin-B)": "Mask2Former (Swin-B)  —  7 classes ★",
+}
+LABEL_TO_MODEL_7 = {v: k for k, v in MODEL_LABELS_7.items()}
+
+SCHEMES = {
+    "5": dict(
+        tab="5 Classes", num_classes=NUM_CLASSES, class_names=CLASS_NAMES, class_colors=CLASS_COLORS,
+        models=MODELS, default=DEFAULT_MODEL, labels=MODEL_LABELS, label_to_model=LABEL_TO_MODEL,
+        label_scale=50,        # class index × scale gives the grey-level label image
+        norm="global",         # intensity normalisation: whole image
+        check_keys=False,      # tolerate missing weights (kept as in the original release)
+        combined=[], suffix="",
+        blurb=("<p><strong>5 classes:</strong> Background, Epidermis, Vascular Region, Mesophyll, Air Space. "
+               "Choose one of four models below.</p>"),
+    ),
+    "7": dict(
+        tab="7 Classes", num_classes=len(CLASS_NAMES_7), class_names=CLASS_NAMES_7, class_colors=CLASS_COLORS_7,
+        models=MODELS_7, default=DEFAULT_MODEL_7, labels=MODEL_LABELS_7, label_to_model=LABEL_TO_MODEL_7,
+        label_scale=40,
+        norm="patch",          # each 320×320 patch is normalised separately, as in training
+        check_keys=True,       # refuse to run with random weights if the checkpoint does not match
+        combined=[("Vein (Bundle_Sheath + Vascular_Tissue)", [2, 3])],
+        suffix="-7",
+        blurb=("<p><strong>7 classes:</strong> Background, Epidermis, Bundle Sheath, Vascular Tissue, "
+               "Palisade Mesophyll, Spongy Mesophyll, Air Space.</p>"
+               "<p><strong>Caution:</strong> Bundle Sheath and Vascular Tissue are often confused with each other, "
+               "so their accuracy is lower when they are counted separately (IoU about 0.62 and 0.52 on held-out leaves). "
+               "Counted together as one <em>Vein</em> class, the IoU rises to about 0.80. For measurements, use the "
+               "combined <em>Vein</em> row in the statistics table.</p>"),
+    ),
+}
+
 _MODEL_CACHE = {}
 
-def get_model(name):
+def get_model(name, scheme="5"):
     """Lazily download, build, and cache the selected model. Returns None on failure (demo mode)."""
-    if name not in MODELS:
-        name = DEFAULT_MODEL
-    if name in _MODEL_CACHE:
-        return _MODEL_CACHE[name]
-    filename, builder = MODELS[name]
+    cfg = SCHEMES[scheme]
+    if name not in cfg["models"]:
+        name = cfg["default"]
+    key = (scheme, name)
+    if key in _MODEL_CACHE:
+        return _MODEL_CACHE[key]
+    filename, builder = cfg["models"][name]
     try:
-        from huggingface_hub import hf_hub_download
-        print(f"Downloading {filename} from {MODEL_REPO}...")
-        model_path = hf_hub_download(repo_id=MODEL_REPO, filename=filename)
-        model      = builder(NUM_CLASSES)
+        local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", filename)
+        if os.path.exists(local_path):                      # local copy (e.g. for testing before upload)
+            print(f"Using local weights {local_path}")
+            model_path = local_path
+        else:
+            from huggingface_hub import hf_hub_download
+            print(f"Downloading {filename} from {MODEL_REPO}...")
+            model_path = hf_hub_download(repo_id=MODEL_REPO, filename=filename)
+        model      = builder(cfg["num_classes"])
         checkpoint = torch.load(model_path, map_location=DEVICE, weights_only=False)
         state_dict = checkpoint.get("model_state_dict", checkpoint)
         result     = model.load_state_dict(state_dict, strict=False)
         if result.missing_keys or result.unexpected_keys:
             print(f"  Note: {len(result.missing_keys)} missing / {len(result.unexpected_keys)} unexpected key(s).")
+        if cfg["check_keys"]:
+            real_missing = [k for k in result.missing_keys if "criterion" not in k]
+            if real_missing:
+                raise RuntimeError(f"{len(real_missing)} weight(s) missing from {filename}, e.g. {real_missing[:2]}")
         model.eval().to(DEVICE)
-        print(f"'{name}' loaded on {DEVICE}.")
-        _MODEL_CACHE[name] = model
+        print(f"'{name}' ({cfg['tab']}) loaded on {DEVICE}.")
+        _MODEL_CACHE[key] = model
         return model
     except Exception as e:
-        print(f"WARNING: Could not load '{name}' — {e}. Running in demo mode.")
+        print(f"WARNING: Could not load '{name}' ({cfg['tab']}) — {e}. Running in demo mode.")
         return None
+
+
+# ── IMAGE HELPERS ─────────────────────────────────────────────────────────────
+_HIGH_BIT_MODES = ("F", "I", "I;16", "I;16L", "I;16B", "I;16N")
+
+def to_gray8(image: Image.Image) -> np.ndarray:
+    """Grayscale uint8 array. 16/32-bit images (raw micro-CT slices) are rescaled to 8-bit using the
+    0.5–99.5 percentile range of the slice; ordinary 8-bit / RGB images are simply converted to grey."""
+    if image.mode in _HIGH_BIT_MODES:
+        a = np.array(image, dtype=np.float32)
+        lo, hi = np.percentile(a, [0.5, 99.5])
+        hi = max(float(hi), float(lo) + 1e-6)
+        return (np.clip((a - lo) / (hi - lo), 0, 1) * 255).astype(np.uint8)
+    return np.array(image.convert("L"))
+
+def _display_rgb(image: Image.Image) -> Image.Image:
+    """RGB version of an image for display; 16/32-bit images are rescaled first."""
+    if image.mode in _HIGH_BIT_MODES:
+        return Image.fromarray(to_gray8(image)).convert("RGB")
+    return image.convert("RGB")
 
 
 # ── PATCH-BASED INFERENCE ─────────────────────────────────────────────────────
@@ -230,19 +314,29 @@ def _grid_positions(size: int, patch: int, stride: int) -> list:
         pos.append(max(0, size - patch))
     return pos
 
-def run_patch_inference(mdl, image: Image.Image) -> np.ndarray:
-    """Tile → infer → Gaussian-weighted stitch. Returns (H, W) class-index array."""
-    img_np = np.array(image.convert("L"), dtype=np.float32)
-    H, W   = img_np.shape
-
-    img_t = torch.tensor(img_np).unsqueeze(0)
-    valid = img_t[img_t > 0]
+def _normalise(t: torch.Tensor) -> torch.Tensor:
+    """Z-score over the non-zero pixels (zeros are padding / empty background)."""
+    valid = t[t > 0]
     if len(valid):
         mean, std = valid.mean(), valid.std()
         if std > 1e-5:
-            img_t = (img_t - mean) / std
+            t = (t - mean) / std
+    return t
 
-    accum = torch.zeros(NUM_CLASSES, H, W)
+def run_patch_inference(mdl, image: Image.Image, scheme: str = "5") -> np.ndarray:
+    """Tile → infer → Gaussian-weighted stitch. Returns (H, W) class-index array."""
+    cfg       = SCHEMES[scheme]
+    nc        = cfg["num_classes"]
+    per_patch = cfg["norm"] == "patch"
+
+    img_np = to_gray8(image).astype(np.float32)
+    H, W   = img_np.shape
+
+    img_t = torch.tensor(img_np).unsqueeze(0)
+    if not per_patch:
+        img_t = _normalise(img_t)
+
+    accum = torch.zeros(nc, H, W)
     count = torch.zeros(H, W)
     gk    = _gaussian_kernel(PATCH_SIZE)
 
@@ -251,7 +345,11 @@ def run_patch_inference(mdl, image: Image.Image) -> np.ndarray:
             for left in _grid_positions(W, PATCH_SIZE, STRIDE):
                 ph, pw = min(PATCH_SIZE, H - top), min(PATCH_SIZE, W - left)
                 patch  = img_t[:, top:top+ph, left:left+pw]
-                if ph < PATCH_SIZE or pw < PATCH_SIZE:
+                if per_patch:
+                    if ph < PATCH_SIZE or pw < PATCH_SIZE:
+                        patch = F.pad(patch, (0, PATCH_SIZE - pw, 0, PATCH_SIZE - ph), value=0)
+                    patch = _normalise(patch)
+                elif ph < PATCH_SIZE or pw < PATCH_SIZE:
                     patch = F.pad(patch, (0, PATCH_SIZE - pw, 0, PATCH_SIZE - ph), mode="replicate")
                 out    = mdl(patch.unsqueeze(0).to(DEVICE)).squeeze(0).float().cpu()
                 weight = gk[:ph, :pw]
@@ -262,22 +360,34 @@ def run_patch_inference(mdl, image: Image.Image) -> np.ndarray:
 
 
 # ── OUTPUT HELPERS ────────────────────────────────────────────────────────────
-def mask_to_images(mask_array: np.ndarray):
+def mask_to_images(mask_array: np.ndarray, scheme: str = "5"):
     """Return (label_img, color_mask) as PIL RGB images."""
-    color_mask = Image.fromarray(CLASS_COLORS[mask_array])
-    label_img  = Image.fromarray((mask_array * 50).astype(np.uint8)).convert("RGB")
+    cfg        = SCHEMES[scheme]
+    color_mask = Image.fromarray(cfg["class_colors"][mask_array])
+    label_img  = Image.fromarray((mask_array * cfg["label_scale"]).astype(np.uint8)).convert("RGB")
     return label_img, color_mask
 
 def overlay_mask(original: Image.Image, mask: Image.Image, alpha: float = 0.5) -> Image.Image:
-    return Image.blend(original.convert("RGB").resize(mask.size), mask, alpha=alpha)
+    return Image.blend(_display_rgb(original).resize(mask.size), mask, alpha=alpha)
 
-def area_stats(mask_array: np.ndarray) -> list:
-    total = mask_array.size
-    rows  = []
-    for c, name in enumerate(CLASS_NAMES):
-        count = int(np.sum(mask_array == c))
-        rows.append([name, f"{count:,}", f"{100 * count / total:.2f}%"])
+def _stat_rows(counts, total, cfg) -> list:
+    """[class, count, percentage] rows, followed by the combined rows (e.g. Vein) of the scheme."""
+    rows = []
+    for c, name in enumerate(cfg["class_names"]):
+        n = int(counts[c])
+        rows.append([name, f"{n:,}", f"{100 * n / total:.2f}%" if total > 0 else "0.00%"])
+    for label, idxs in cfg["combined"]:
+        n = int(sum(counts[i] for i in idxs))
+        rows.append([label, f"{n:,}", f"{100 * n / total:.2f}%" if total > 0 else "0.00%"])
     return rows
+
+def _na_rows(cfg) -> list:
+    return [[name, "N/A", "N/A"] for name in cfg["class_names"] + [l for l, _ in cfg["combined"]]]
+
+def area_stats(mask_array: np.ndarray, scheme: str = "5") -> list:
+    cfg    = SCHEMES[scheme]
+    counts = np.bincount(mask_array.ravel(), minlength=cfg["num_classes"])
+    return _stat_rows(counts, mask_array.size, cfg)
 
 def save_csv(rows: list, headers: list, filename: str) -> str:
     path = os.path.join(tempfile.mkdtemp(), filename)
@@ -300,15 +410,16 @@ def save_tiff_stack(images: list, filename: str) -> str:
 
 # ── SINGLE IMAGE INFERENCE ────────────────────────────────────────────────────
 # @spaces.GPU   # ← uncomment for HuggingFace ZeroGPU
-def run_segmentation(input_image: Image.Image, model_label: str = MODEL_LABELS[DEFAULT_MODEL]):
+def run_segmentation(input_image: Image.Image, model_label: str = None, scheme: str = "5"):
+    cfg = SCHEMES[scheme]
     if input_image is None:
         raise gr.Error("Please upload a CT scan image first.")
 
-    model = get_model(LABEL_TO_MODEL.get(model_label, DEFAULT_MODEL))
+    model = get_model(cfg["label_to_model"].get(model_label, cfg["default"]), scheme)
     if model is None:
-        ph    = input_image.convert("L").convert("RGB")
+        ph    = _display_rgb(input_image)
         ovl   = overlay_mask(input_image, ph)
-        empty = [[name, "N/A", "N/A"] for name in CLASS_NAMES]
+        empty = _na_rows(cfg)
         return (
             ph, ph, ovl, empty,
             save_csv(empty, ["Class", "Pixels", "Percentage"], "area_stats.csv"),
@@ -319,10 +430,10 @@ def run_segmentation(input_image: Image.Image, model_label: str = MODEL_LABELS[D
         )
 
     try:
-        mask_array       = run_patch_inference(model, input_image)
-        label_img, color = mask_to_images(mask_array)
+        mask_array       = run_patch_inference(model, input_image, scheme)
+        label_img, color = mask_to_images(mask_array, scheme)
         ovl              = overlay_mask(input_image, color)
-        stats            = area_stats(mask_array)
+        stats            = area_stats(mask_array, scheme)
         return (
             label_img, color, ovl, stats,
             save_csv(stats, ["Class", "Pixels", "Percentage"], "area_stats.csv"),
@@ -344,13 +455,15 @@ def preview_and_store_stack(f):
         tiff = Image.open(filepath)
         n    = getattr(tiff, "n_frames", 1)
         tiff.seek(n // 2)
-        return tiff.copy().convert("RGB"), filepath, f"Stack uploaded ({n} slices) — Click 'Run Segmentation on Stack'."
+        return _display_rgb(tiff.copy()), filepath, f"Stack uploaded ({n} slices) — Click 'Run Segmentation on Stack'."
     except Exception as e:
         return None, None, f"Error reading stack: {e}"
 
 
 # @spaces.GPU   # ← uncomment for HuggingFace ZeroGPU
-def run_segmentation_stack(stack_path, model_label: str = MODEL_LABELS[DEFAULT_MODEL]):
+def run_segmentation_stack(stack_path, model_label: str = None, scheme: str = "5"):
+    cfg = SCHEMES[scheme]
+    nc  = cfg["num_classes"]
     if stack_path is None:
         raise gr.Error("Please upload a stack image first.")
     try:
@@ -362,11 +475,11 @@ def run_segmentation_stack(stack_path, model_label: str = MODEL_LABELS[DEFAULT_M
     mid_idx  = n_frames // 2
     print(f"Stack: {n_frames} slice(s).")
 
-    model = get_model(LABEL_TO_MODEL.get(model_label, DEFAULT_MODEL))
+    model = get_model(cfg["label_to_model"].get(model_label, cfg["default"]), scheme)
     if model is None:
         tiff.seek(mid_idx)
-        ph    = tiff.copy().convert("RGB")
-        empty = [[name, "N/A", "N/A"] for name in CLASS_NAMES]
+        ph    = _display_rgb(tiff.copy())
+        empty = _na_rows(cfg)
         return (
             ph, ph, overlay_mask(ph, ph),
             empty,
@@ -379,18 +492,18 @@ def run_segmentation_stack(stack_path, model_label: str = MODEL_LABELS[DEFAULT_M
         )
 
     try:
-        total_counts = np.zeros(NUM_CLASSES, dtype=np.int64)
+        total_counts = np.zeros(nc, dtype=np.int64)
         per_slice_data, label_imgs, color_masks, overlays = [], [], [], []
         mid_label = mid_color = mid_overlay = None
 
         for i in range(n_frames):
             tiff.seek(i)
             slice_img        = tiff.copy()
-            mask_array       = run_patch_inference(model, slice_img)
-            label_img, color = mask_to_images(mask_array)
+            mask_array       = run_patch_inference(model, slice_img, scheme)
+            label_img, color = mask_to_images(mask_array, scheme)
             ovl              = overlay_mask(slice_img, color)
 
-            total_counts += np.bincount(mask_array.ravel(), minlength=NUM_CLASSES)
+            total_counts += np.bincount(mask_array.ravel(), minlength=nc)
             per_slice_data.append((i, mask_array))
             label_imgs.append(label_img)
             color_masks.append(color)
@@ -399,18 +512,12 @@ def run_segmentation_stack(stack_path, model_label: str = MODEL_LABELS[DEFAULT_M
             if i == mid_idx:
                 mid_label, mid_color, mid_overlay = label_img, color, ovl
 
-        grand_total = int(total_counts.sum())
-        stats = [
-            [name, f"{int(total_counts[c]):,}",
-             f"{100 * total_counts[c] / grand_total:.2f}%" if grand_total > 0 else "0.00%"]
-            for c, name in enumerate(CLASS_NAMES)
-        ]
+        stats = _stat_rows(total_counts, int(total_counts.sum()), cfg)
         perslice_rows = []
         for idx, ma in per_slice_data:
-            total_px = ma.size
-            for c, name in enumerate(CLASS_NAMES):
-                px = int(np.sum(ma == c))
-                perslice_rows.append([idx + 1, name, f"{px:,}", f"{100 * px / total_px:.2f}%"])
+            counts = np.bincount(ma.ravel(), minlength=nc)
+            for name, n_px, pct in _stat_rows(counts, ma.size, cfg):
+                perslice_rows.append([idx + 1, name, n_px, pct])
 
         return (
             mid_label, mid_color, mid_overlay,
@@ -925,13 +1032,40 @@ def load_uploaded_file(f):
         return None, gr.update()
     img = Image.open(f.name)
     img.load()   # force read into memory — temp file may be deleted after return
+    if img.mode in _HIGH_BIT_MODES:                      # raw 16/32-bit slice: show it as 8-bit
+        img = Image.fromarray(to_gray8(img))
     return img, "Image uploaded — Click 'Run Segmentation' to process."
 
 
 # ── GRADIO UI ─────────────────────────────────────────────────────────────────
-EMPTY_TABLE = [["—", "—", "—"]] * NUM_CLASSES
+# Every element id used by the stylesheet. The 7-class section builds the same interface with the
+# suffix "-7" on each id, and the stylesheet rules are duplicated for those ids (ids must be unique).
+_UI_IDS = [
+    "main-tabs", "main-row", "result-col", "result-tabs", "dl-row", "example-gallery", "model-selector",
+    "status-block", "img-file-upload", "img-input", "img-label", "img-color", "img-overlay", "run-btn",
+    "area-table", "dl-csv", "dl-label", "dl-color", "dl-overlay",
+    "stack-file-upload", "img-stack-preview", "img-stack-label", "img-stack-color", "img-stack-overlay",
+    "stack-run-btn", "stack-example-gallery", "stack-area-table", "stack-dl-row", "stack-dl-csv",
+    "stack-dl-perslice", "stack-dl-label", "stack-dl-color", "stack-dl-overlay", "stack-main-row",
+    "stack-result-col", "stack-result-tabs",
+]
 
-# ── DYNAMIC GRADIO VERSION HANDLING ───────────────────────────────────────────
+def _css_with_suffix_rules(css_text: str, suffix: str) -> str:
+    """Append, right after every rule that targets one of the UI ids, a copy of that rule for the
+    suffixed ids, so the second (7-class) interface is styled exactly like the first."""
+    import re
+    id_re = re.compile(r"#(" + "|".join(sorted(_UI_IDS, key=len, reverse=True)) + r")(?![\w-])")
+    rule_re = re.compile(r"([^{}]+)\{([^{}]*)\}")
+
+    def dup(m):
+        selector, body = m.group(1), m.group(2)
+        if not id_re.search(selector):
+            return m.group(0)
+        return m.group(0) + "\n" + id_re.sub(lambda i: "#" + i.group(1) + suffix, selector).strip() + " {" + body + "}"
+
+    return rule_re.sub(dup, css_text)
+
+
 theme_obj = gr.themes.Default(primary_hue=gr.themes.colors.green, neutral_hue=gr.themes.colors.gray)
 
 goatcounter_head = """
@@ -943,7 +1077,7 @@ goatcounter_head = """
 blocks_kwargs = {
     "title": "Leaf CT Scan Segmentation",
     "theme": theme_obj,
-    "css": css,
+    "css": _css_with_suffix_rules(css, SCHEMES["7"]["suffix"]),
     "head": goatcounter_head,
 }
 
@@ -954,13 +1088,193 @@ launch_kwargs = {
     "debug": False,
 }
 
+
+def build_section(scheme: str):
+    """Build the Single Image / Stack Image interface for one class scheme (5 or 7 classes)."""
+    cfg         = SCHEMES[scheme]
+    sfx         = cfg["suffix"]
+    eid         = lambda name: name + sfx
+    empty_table = [["—", "—", "—"]] * (cfg["num_classes"] + len(cfg["combined"]))
+
+    # Event handlers bound to this scheme
+    def _run(img, model_label):
+        return run_segmentation(img, model_label, scheme)
+
+    def _run_stack(path, model_label):
+        return run_segmentation_stack(path, model_label, scheme)
+
+    gr.HTML(cfg["blurb"])
+
+    model_selector = gr.Radio(
+        choices=list(cfg["labels"].values()),
+        value=cfg["labels"][cfg["default"]],
+        label="Segmentation Model",
+        elem_id=eid("model-selector"),
+    )
+
+    status = gr.Textbox(
+        label="Status",
+        value="Ready — Please upload a CT scan and click Run.",
+        interactive=False,
+        elem_id=eid("status-block"),
+    )
+
+    with gr.Tabs(elem_id=eid("main-tabs")):
+
+        # ── TAB 1: SINGLE IMAGE ───────────────────────────────────────────────
+        with gr.Tab("Single Image"):
+            with gr.Row(equal_height=True, elem_id=eid("main-row")):
+                with gr.Column():
+                    input_file = gr.File(
+                        label="Upload CT Scan (.png / .jpg / .tif)",
+                        file_types=[".png", ".jpg", ".jpeg", ".tif", ".tiff"],
+                        height=90, elem_id=eid("img-file-upload"),
+                    )
+                    input_image = gr.Image(
+                        type="pil", label="Preview",
+                        interactive=False, height=400, elem_id=eid("img-input"),
+                    )
+                with gr.Column(elem_id=eid("result-col")):
+                    with gr.Tabs(elem_id=eid("result-tabs")):
+                        with gr.Tab("Class Label"):
+                            output_label = gr.Image(type="pil", label="Class Label", interactive=False, height=500, elem_id=eid("img-label"))
+                        with gr.Tab("Color Mask"):
+                            output_color = gr.Image(type="pil", label="Color Mask", interactive=False, height=500, elem_id=eid("img-color"))
+                        with gr.Tab("Overlay"):
+                            output_overlay = gr.Image(type="pil", label="Overlay", interactive=False, height=500, elem_id=eid("img-overlay"))
+
+            with gr.Row():
+                submit_btn = gr.Button("Run Segmentation", variant="primary", elem_id=eid("run-btn"))
+                clear_btn  = gr.Button("Clear", variant="secondary")
+
+            gr.HTML("<h2>Example Images</h2><p>Click an image's name below to load it.</p>")
+            with gr.Row(elem_id=eid("example-gallery")):
+                example_btns = []
+                for path, name in EXAMPLE_PATHS:
+                    with gr.Column(scale=1, min_width=120, elem_classes=["ex-card"]):
+                        gr.Image(value=path, interactive=False, show_label=False,
+                                 height=130, elem_classes=["ex-thumb"])
+                        example_btns.append(gr.Button(name, size="sm", elem_classes=["ex-btn"]))
+
+            gr.HTML("<h2>Area Statistics</h2>")
+            area_table = gr.Dataframe(
+                headers=["Class", "Pixels", "Percentage"],
+                value=empty_table, show_label=False, interactive=False, elem_id=eid("area-table"),
+            )
+            gr.HTML("<h2>Save Output</h2>")
+            with gr.Row(elem_id=eid("dl-row")):
+                dl_csv     = gr.File(label="1. Area Statistics", interactive=False, elem_id=eid("dl-csv"),     height=80)
+                dl_label   = gr.File(label="2. Label Mask",      interactive=False, elem_id=eid("dl-label"),   height=80)
+                dl_color   = gr.File(label="3. Color Mask",      interactive=False, elem_id=eid("dl-color"),   height=80)
+                dl_overlay = gr.File(label="4. Overlay Image",   interactive=False, elem_id=eid("dl-overlay"), height=80)
+
+            # ── Events
+            input_file.upload(fn=load_uploaded_file, inputs=[input_file], outputs=[input_image, status])
+            input_image.change(
+                fn=lambda img: "Image loaded — Click 'Run Segmentation' to process." if img is not None else gr.update(),
+                inputs=[input_image],
+                outputs=[status],
+            )
+            run_event = submit_btn.click(
+                fn=_run,
+                inputs=[input_image, model_selector],
+                outputs=[output_label, output_color, output_overlay, area_table, dl_csv, dl_label, dl_color, dl_overlay, status],
+            )
+            clear_btn.click(
+                fn=lambda: (None, None, None, None, None, empty_table, None, None, None, None, "Ready — Please upload a CT scan and click Run."),
+                outputs=[input_file, input_image, output_label, output_color, output_overlay, area_table, dl_csv, dl_label, dl_color, dl_overlay, status],
+                cancels=[run_event],
+            )
+            for btn, (path, _) in zip(example_btns, EXAMPLE_PATHS):
+                btn.click(
+                    fn=lambda p=path: (Image.open(p).convert("L"), "Image loaded — Click 'Run Segmentation' to process."),
+                    outputs=[input_image, status],
+                )
+
+        # ── TAB 2: TIFF STACK ─────────────────────────────────────────────────
+        with gr.Tab("Stack Image"):
+            stack_path_state = gr.State(None)
+            with gr.Row(equal_height=True, elem_id=eid("stack-main-row")):
+                with gr.Column():
+                    stack_file = gr.File(
+                        label="Upload CT Stack (.tif / .tiff)",
+                        file_types=[".tif", ".tiff"], height=90, elem_id=eid("stack-file-upload"),
+                    )
+                    stack_preview = gr.Image(
+                        type="pil", label="Stack Preview (Middle slice)",
+                        interactive=False, height=350, elem_id=eid("img-stack-preview"),
+                    )
+                with gr.Column(elem_id=eid("stack-result-col")):
+                    with gr.Tabs(elem_id=eid("stack-result-tabs")):
+                        with gr.Tab("Class Label"):
+                            stack_output_label = gr.Image(type="pil", label="Class Label (Middle slice)", interactive=False, height=500, elem_id=eid("img-stack-label"))
+                        with gr.Tab("Color Mask"):
+                            stack_output_color = gr.Image(type="pil", label="Color Mask (Middle slice)",  interactive=False, height=500, elem_id=eid("img-stack-color"))
+                        with gr.Tab("Overlay"):
+                            stack_output_overlay = gr.Image(type="pil", label="Overlay (Middle slice)",   interactive=False, height=500, elem_id=eid("img-stack-overlay"))
+
+            with gr.Row():
+                stack_submit_btn = gr.Button("Run Segmentation on Stack", variant="primary", elem_id=eid("stack-run-btn"))
+                stack_clear_btn  = gr.Button("Clear", variant="secondary")
+
+            gr.HTML("<h2>Example Stacks</h2><p>Click a stack'name below to load it.</p>")
+            with gr.Row(elem_id=eid("stack-example-gallery")):
+                stack_example_btns = []
+                for _, preview, name in STACK_EXAMPLE_PATHS:
+                    with gr.Column(scale=1, min_width=120, elem_classes=["stack-ex-card"]):
+                        gr.Image(value=preview, interactive=False, show_label=False,
+                                 height=100, elem_classes=["stack-ex-thumb"])
+                        stack_example_btns.append(gr.Button(name, size="sm", elem_classes=["stack-ex-btn"]))
+
+            gr.HTML("<h2>Volume Statistics (All slices)</h2>")
+            stack_area_table = gr.Dataframe(
+                headers=["Class", "Voxels", "Volume %"],
+                value=empty_table, show_label=False, interactive=False, elem_id=eid("stack-area-table"),
+            )
+            gr.HTML("<h2>Save Output</h2>")
+            with gr.Row(elem_id=eid("stack-dl-row")):
+                stack_dl_csv          = gr.File(label="1. Volume Stats",    interactive=False, elem_id=eid("stack-dl-csv"),      height=80)
+                stack_dl_perslice_csv = gr.File(label="2. Stats Per Slice", interactive=False, elem_id=eid("stack-dl-perslice"), height=80)
+                stack_dl_label        = gr.File(label="3. Label Stack",     interactive=False, elem_id=eid("stack-dl-label"),    height=80)
+                stack_dl_color        = gr.File(label="4. Color Stack",     interactive=False, elem_id=eid("stack-dl-color"),    height=80)
+                stack_dl_overlay      = gr.File(label="5. Overlay Stack",   interactive=False, elem_id=eid("stack-dl-overlay"),  height=80)
+
+            # ── Events
+            stack_file.upload(
+                fn=preview_and_store_stack,
+                inputs=[stack_file],
+                outputs=[stack_preview, stack_path_state, status],
+            )
+            stack_run_event = stack_submit_btn.click(
+                fn=_run_stack,
+                inputs=[stack_path_state, model_selector],
+                outputs=[stack_output_label, stack_output_color, stack_output_overlay, stack_area_table,
+                         stack_dl_csv, stack_dl_perslice_csv, stack_dl_label, stack_dl_color, stack_dl_overlay, status],
+            )
+            stack_clear_btn.click(
+                fn=lambda: (None, None, None, None, None, None, empty_table, None, None, None, None, None, "Ready — Please upload a CT stack and click Run."),
+                outputs=[stack_file, stack_preview, stack_path_state,
+                         stack_output_label, stack_output_color, stack_output_overlay,
+                         stack_area_table, stack_dl_csv, stack_dl_perslice_csv,
+                         stack_dl_label, stack_dl_color, stack_dl_overlay, status],
+                cancels=[stack_run_event],
+            )
+            for btn, (path, _preview, _name) in zip(stack_example_btns, STACK_EXAMPLE_PATHS):
+                btn.click(
+                    fn=lambda p=path: preview_and_store_stack(p),
+                    outputs=[stack_preview, stack_path_state, status],
+                )
+
+
 with gr.Blocks(**blocks_kwargs) as demo:
 
     gr.HTML("""
         <img src="https://leafctwebapp.goatcounter.com/count?p=/huggingface-space&t=Leaf%20CT%20Segmentation%20Webapp"
              alt="" width="1" height="1" style="position:absolute; left:-9999px; width:1px; height:1px;">
         <h1>Leaf CT Scan Segmentation</h1>
-        <p>Automatic leaf CT scan segmentation with a choice of transformer-based models (EoMT/DINOv3, Mask2Former/Swin-B, SegFormer-B4, FPN/MiT-B4).</p>
+        <p>Automatic leaf CT scan segmentation with transformer-based models, in two versions: <strong>5 classes</strong>
+        (four models: EoMT/DINOv3, Mask2Former/Swin-B, SegFormer-B4, FPN/MiT-B4) and <strong>7 classes</strong>
+        (Mask2Former/Swin-B, with Bundle Sheath, Vascular Tissue, Palisade and Spongy Mesophyll as separate classes). Pick a tab below.</p>
         <p><strong>Features:</strong> Upload a single image or a multi-slice TIFF stack to visualize tissue segmentation and export area statistics.
         &nbsp;·&nbsp; <a href="https://github.com/WorasitSangjan/WebApp-Leaf-microCT-Segmentation/blob/main/MANUAL.md" target="_blank">📖 User Manual</a></p>
         <div class="deployment-block">
@@ -979,166 +1293,11 @@ with gr.Blocks(**blocks_kwargs) as demo:
 
     """)
 
-
-    model_selector = gr.Radio(
-        choices=list(MODEL_LABELS.values()),
-        value=MODEL_LABELS[DEFAULT_MODEL],
-        label="Segmentation Model",
-        elem_id="model-selector",
-    )
-
-    status = gr.Textbox(
-        label="Status",
-        value="Ready — Please upload a CT scan and click Run.",
-        interactive=False,
-        elem_id="status-block",
-    )
-
-    with gr.Tabs(elem_id="main-tabs"):
-
-        # ── TAB 1: SINGLE IMAGE ───────────────────────────────────────────────
-        with gr.Tab("Single Image"):
-            with gr.Row(equal_height=True, elem_id="main-row"):
-                with gr.Column():
-                    input_file = gr.File(
-                        label="Upload CT Scan (.png / .jpg / .tif)",
-                        file_types=[".png", ".jpg", ".jpeg", ".tif", ".tiff"],
-                        height=90, elem_id="img-file-upload",
-                    )
-                    input_image = gr.Image(
-                        type="pil", label="Preview",
-                        interactive=False, height=400, elem_id="img-input",
-                    )
-                with gr.Column(elem_id="result-col"):
-                    with gr.Tabs(elem_id="result-tabs"):
-                        with gr.Tab("Class Label"):
-                            output_label = gr.Image(type="pil", label="Class Label", interactive=False, height=500, elem_id="img-label")
-                        with gr.Tab("Color Mask"):
-                            output_color = gr.Image(type="pil", label="Color Mask", interactive=False, height=500, elem_id="img-color")
-                        with gr.Tab("Overlay"):
-                            output_overlay = gr.Image(type="pil", label="Overlay", interactive=False, height=500, elem_id="img-overlay")
-
-            with gr.Row():
-                submit_btn = gr.Button("Run Segmentation", variant="primary", elem_id="run-btn")
-                clear_btn  = gr.Button("Clear", variant="secondary")
-
-            gr.HTML("<h2>Example Images</h2><p>Click an image's name below to load it.</p>")
-            with gr.Row(elem_id="example-gallery"):
-                example_btns = []
-                for path, name in EXAMPLE_PATHS:
-                    with gr.Column(scale=1, min_width=120, elem_classes=["ex-card"]):
-                        gr.Image(value=path, interactive=False, show_label=False,
-                                 height=130, elem_classes=["ex-thumb"])
-                        example_btns.append(gr.Button(name, size="sm", elem_classes=["ex-btn"]))
-
-            gr.HTML("<h2>Area Statistics</h2>")
-            area_table = gr.Dataframe(
-                headers=["Class", "Pixels", "Percentage"],
-                value=EMPTY_TABLE, show_label=False, interactive=False, elem_id="area-table",
-            )
-            gr.HTML("<h2>Save Output</h2>")
-            with gr.Row(elem_id="dl-row"):
-                dl_csv     = gr.File(label="1. Area Statistics", interactive=False, elem_id="dl-csv",     height=80)
-                dl_label   = gr.File(label="2. Label Mask",      interactive=False, elem_id="dl-label",   height=80)
-                dl_color   = gr.File(label="3. Color Mask",      interactive=False, elem_id="dl-color",   height=80)
-                dl_overlay = gr.File(label="4. Overlay Image",   interactive=False, elem_id="dl-overlay", height=80)
-
-            # ── Events
-            input_file.upload(fn=load_uploaded_file, inputs=[input_file], outputs=[input_image, status])
-            input_image.change(
-                fn=lambda img: "Image loaded — Click 'Run Segmentation' to process." if img is not None else gr.update(),
-                inputs=[input_image],
-                outputs=[status],
-            )
-            run_event = submit_btn.click(
-                fn=run_segmentation,
-                inputs=[input_image, model_selector],
-                outputs=[output_label, output_color, output_overlay, area_table, dl_csv, dl_label, dl_color, dl_overlay, status],
-            )
-            clear_btn.click(
-                fn=lambda: (None, None, None, None, None, EMPTY_TABLE, None, None, None, None, "Ready — Please upload a CT scan and click Run."),
-                outputs=[input_file, input_image, output_label, output_color, output_overlay, area_table, dl_csv, dl_label, dl_color, dl_overlay, status],
-                cancels=[run_event],
-            )
-            for btn, (path, _) in zip(example_btns, EXAMPLE_PATHS):
-                btn.click(
-                    fn=lambda p=path: (Image.open(p).convert("L"), "Image loaded — Click 'Run Segmentation' to process."),
-                    outputs=[input_image, status],
-                )
-
-        # ── TAB 2: TIFF STACK ─────────────────────────────────────────────────
-        with gr.Tab("Stack Image"):
-            stack_path_state = gr.State(None)
-            with gr.Row(equal_height=True, elem_id="stack-main-row"):
-                with gr.Column():
-                    stack_file = gr.File(
-                        label="Upload CT Stack (.tif / .tiff)",
-                        file_types=[".tif", ".tiff"], height=90, elem_id="stack-file-upload",
-                    )
-                    stack_preview = gr.Image(
-                        type="pil", label="Stack Preview (Middle slice)",
-                        interactive=False, height=350, elem_id="img-stack-preview",
-                    )
-                with gr.Column(elem_id="stack-result-col"):
-                    with gr.Tabs(elem_id="stack-result-tabs"):
-                        with gr.Tab("Class Label"):
-                            stack_output_label = gr.Image(type="pil", label="Class Label (Middle slice)", interactive=False, height=500, elem_id="img-stack-label")
-                        with gr.Tab("Color Mask"):
-                            stack_output_color = gr.Image(type="pil", label="Color Mask (Middle slice)",  interactive=False, height=500, elem_id="img-stack-color")
-                        with gr.Tab("Overlay"):
-                            stack_output_overlay = gr.Image(type="pil", label="Overlay (Middle slice)",   interactive=False, height=500, elem_id="img-stack-overlay")
-
-            with gr.Row():
-                stack_submit_btn = gr.Button("Run Segmentation on Stack", variant="primary", elem_id="stack-run-btn")
-                stack_clear_btn  = gr.Button("Clear", variant="secondary")
-
-            gr.HTML("<h2>Example Stacks</h2><p>Click a stack'name below to load it.</p>")
-            with gr.Row(elem_id="stack-example-gallery"):
-                stack_example_btns = []
-                for _, preview, name in STACK_EXAMPLE_PATHS:
-                    with gr.Column(scale=1, min_width=120, elem_classes=["stack-ex-card"]):
-                        gr.Image(value=preview, interactive=False, show_label=False,
-                                 height=100, elem_classes=["stack-ex-thumb"])
-                        stack_example_btns.append(gr.Button(name, size="sm", elem_classes=["stack-ex-btn"]))
-
-            gr.HTML("<h2>Volume Statistics (All slices)</h2>")
-            stack_area_table = gr.Dataframe(
-                headers=["Class", "Voxels", "Volume %"],
-                value=EMPTY_TABLE, show_label=False, interactive=False, elem_id="stack-area-table",
-            )
-            gr.HTML("<h2>Save Output</h2>")
-            with gr.Row(elem_id="stack-dl-row"):
-                stack_dl_csv          = gr.File(label="1. Volume Stats",    interactive=False, elem_id="stack-dl-csv",      height=80)
-                stack_dl_perslice_csv = gr.File(label="2. Stats Per Slice", interactive=False, elem_id="stack-dl-perslice", height=80)
-                stack_dl_label        = gr.File(label="3. Label Stack",     interactive=False, elem_id="stack-dl-label",    height=80)
-                stack_dl_color        = gr.File(label="4. Color Stack",     interactive=False, elem_id="stack-dl-color",    height=80)
-                stack_dl_overlay      = gr.File(label="5. Overlay Stack",   interactive=False, elem_id="stack-dl-overlay",  height=80)
-
-            # ── Events
-            stack_file.upload(
-                fn=preview_and_store_stack,
-                inputs=[stack_file],
-                outputs=[stack_preview, stack_path_state, status],
-            )
-            stack_run_event = stack_submit_btn.click(
-                fn=run_segmentation_stack,
-                inputs=[stack_path_state, model_selector],
-                outputs=[stack_output_label, stack_output_color, stack_output_overlay, stack_area_table,
-                         stack_dl_csv, stack_dl_perslice_csv, stack_dl_label, stack_dl_color, stack_dl_overlay, status],
-            )
-            stack_clear_btn.click(
-                fn=lambda: (None, None, None, None, None, None, EMPTY_TABLE, None, None, None, None, None, "Ready — Please upload a CT stack and click Run."),
-                outputs=[stack_file, stack_preview, stack_path_state,
-                         stack_output_label, stack_output_color, stack_output_overlay,
-                         stack_area_table, stack_dl_csv, stack_dl_perslice_csv,
-                         stack_dl_label, stack_dl_color, stack_dl_overlay, status],
-                cancels=[stack_run_event],
-            )
-            for btn, (path, _preview, _name) in zip(stack_example_btns, STACK_EXAMPLE_PATHS):
-                btn.click(
-                    fn=lambda p=path: preview_and_store_stack(p),
-                    outputs=[stack_preview, stack_path_state, status],
-                )
+    with gr.Tabs(elem_id="scheme-tabs"):
+        with gr.Tab(SCHEMES["5"]["tab"]):
+            build_section("5")
+        with gr.Tab(SCHEMES["7"]["tab"]):
+            build_section("7")
 
     gr.Markdown("Note: Processing time depends on image size and server load.")
 
