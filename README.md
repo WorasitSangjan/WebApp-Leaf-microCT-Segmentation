@@ -7,6 +7,14 @@ sdk: gradio
 sdk_version: "6.11.0"
 app_file: app.py
 pinned: true
+license: mit
+short_description: Segment leaf X-ray micro-CT scans into tissue types
+tags:
+  - plant-phenotyping
+  - leaf-anatomy
+  - micro-ct
+  - image-segmentation
+  - agriculture
 ---
 
 # Leaf micro-CT Scan Segmentation Web-Application
