@@ -166,5 +166,5 @@ It was trained with the datasets from [Leaf CT Hub](https://leafcthub.github.io/
 
 ## Contact
 
-- **Lead Author:** Worasit Sangjan - worasitsangjan.ws@gmail.com
+- **Lead Author:** Worasit Sangjan - [worasitsangjan.github.io](https://worasitsangjan.github.io/)
 - **Corresponding Author:** Devin A. Rippner - devin.rippner@usda.gov
