@@ -26,7 +26,7 @@ tags:
 ![Science](https://img.shields.io/badge/Science-Plant%20Phenomics-green.svg)
 ![Research](https://img.shields.io/badge/Research-USDA--ARS-navy.svg)
 
-Web application and utilization for automatic leaf micro-CT scan segmentation using a transformer-based model.
+Web application for automatic leaf micro-CT scan segmentation with transformer-based models. Choose the **5 Classes** tab to segment Background, Epidermis, Vascular Region, Mesophyll, and Air Space using one of four models, or the **7 Classes** tab to use a separately trained **Mask2Former (Swin-B)** model. The seven-class model separates Vascular Region into **Bundle Sheath** and **Vascular Tissue**, and Mesophyll into **Palisade Mesophyll** and **Spongy Mesophyll**, while retaining Background, Epidermis, and Air Space.
 
 📖 **[User Manual](./MANUAL.md)** — full step-by-step guide for all deployment options, outputs, and troubleshooting.
 
@@ -99,7 +99,7 @@ Once the terminal says `Running on local URL:  http://127.0.0.1:7860/`, open you
 ## Features
 - **Single Image** — upload a PNG/JPG/TIF and run segmentation
 - **Stack Image** — upload a multi-page TIFF stack, process all slices, and export volume statistics
-- **Model selector** — choose among four transformer-based segmentation models (see [Models](#models)); the selected model's weights download once on first use and are then cached
+- **Segmentation tabs and model selector** — choose among four models in **5 Classes**, or use the separately trained Mask2Former (Swin-B) model in **7 Classes** (see [Models](#models)); the selected model's weights download once on first use and are then cached
 
 ## Output
 | Output | Description |
@@ -142,7 +142,9 @@ The 7-class statistics table also reports a combined **Vein** row (Bundle Sheath
 
 ## Models
 
-Select any of the four models from the **Segmentation Model** list in the app. All share the same 5-class output and patch-based inference; they differ in architecture, size, and speed/accuracy trade-offs.
+Choose a segmentation tab first, then select a model from its **Segmentation Model** list. The **5 Classes** tab offers the four models below, which share the same five output classes and differ in architecture, size, and speed/accuracy trade-offs. The **7 Classes** tab uses a separate Mask2Former (Swin-B) checkpoint with seven output classes. Both tabs use patch-based inference.
+
+**5-class models**
 
 | Model | Architecture | Backbone | Weights file | Approx. size |
 |---|---|---|---|---|
@@ -152,6 +154,8 @@ Select any of the four models from the **Segmentation Model** list in the app. A
 | FPN (MiT-B4) | Feature Pyramid Network | MiT-B4 | `FPN_MiTB4.pth` | ~480 MB |
 
 **7-class model**
+
+This model predicts Background, Epidermis, Bundle Sheath, Vascular Tissue, Palisade Mesophyll, Spongy Mesophyll, and Air Space. Use it when you need separate labels for the vein tissues or the two mesophyll types.
 
 | Model | Architecture | Backbone | Weights file | Approx. size |
 |---|---|---|---|---|

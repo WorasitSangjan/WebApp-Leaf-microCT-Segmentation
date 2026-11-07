@@ -23,7 +23,7 @@
 
 The Leaf micro-CT Scan Segmentation Web Application is an open-source, browser-based tool that automates the identification and measurement of leaf tissue regions in X-ray micro-computed tomography (micro-CT) images. The application requires no programming skills and is accessible to plant biologists, agronomists, and phenotyping researchers.
 
-The tool offers a choice of four transformer-based deep learning models — **Mask2Former (Swin-B)**, **SegFormer-B4**, **EoMT (DINOv3 ViT-L)**, and **FPN (MiT-B4)** — selectable from a radio button panel. The app has two tabs: **5 Classes** (all four models) and **7 Classes** (Mask2Former, with Bundle Sheath, Vascular Tissue, Palisade Mesophyll and Spongy Mesophyll as separate classes). Each model segments every image pixel into one of the anatomical classes of its tab, then calculates area and volume statistics for quantitative analysis. See [Section 7](#7-model-information) for model recommendations.
+The app has two segmentation tabs. **5 Classes** offers four transformer-based models — **Mask2Former (Swin-B)**, **SegFormer-B4**, **EoMT (DINOv3 ViT-L)**, and **FPN (MiT-B4)** — selectable from a radio button panel. **7 Classes** uses a separately trained **Mask2Former (Swin-B)** model that separates Vascular Region into **Bundle Sheath** and **Vascular Tissue**, and Mesophyll into **Palisade Mesophyll** and **Spongy Mesophyll**, while retaining Background, Epidermis, and Air Space. Each model segments every image pixel into one of the classes of its tab, then calculates area and volume statistics for quantitative analysis. See [Section 7](#7-model-information) for model recommendations.
 
 ### 1.1 What This Tool Does
 
@@ -242,6 +242,10 @@ The **Volume Statistics (All slices)** table aggregates voxel counts and volume 
 
 Output CSVs can be opened in Excel, Google Sheets, R, or Python/Pandas.
 
+In the **7 Classes** tab, each statistics CSV contains seven class rows plus a combined **Vein (Bundle_Sheath + Vascular_Tissue)** row. The combined row repeats the counts for Bundle Sheath and Vascular Tissue; exclude it when summing the seven classes. Per-slice CSVs contain these eight rows for each slice.
+
+Percentages use all pixels in the image or all voxels in the stack as the denominator, including Background. The seven class percentages sum to approximately 100% (rounding to two decimal places can cause a small difference). Counts are exported with thousands separators, and percentages include a `%` sign; when reading them as text in analysis software, remove these characters before converting to numbers. Counts represent pixels or voxels, rather than calibrated physical area or volume.
+
 **Area Statistics (Single Image)**
 
 | Column | Example | Meaning |
@@ -264,19 +268,31 @@ Output CSVs can be opened in Excel, Google Sheets, R, or Python/Pandas.
 |---|---|---|---|
 | Slice | 12 | Integer | Slice number (1-indexed). |
 | Class | Epidermis | String | Tissue class name. |
-| Pixels | 14,420 | Integer | Pixel count for this class in this slice. |
-| Percentage | 5.62% | Float | Fraction of total pixels in the slice. |
+| Pixels | 14,420 | Formatted count | Pixel count for this class in this slice. |
+| Percentage | 5.62% | Percentage text | Percentage of total pixels in the slice. |
 
 ### 6.2 Reading the Label Mask in Python
 
-The label mask stores class indices as pixel intensities × 50 (values: 0, 50, 100, 150, 200). To recover integer class indices:
+The label mask stores class indices as scaled pixel intensities. The **5 Classes** tab uses index × 50 (values: 0, 50, 100, 150, 200). The **7 Classes** tab uses index × 40:
+
+| Class | Class index | Saved intensity |
+|---|---|---|
+| Background | 0 | 0 |
+| Epidermis | 1 | 40 |
+| Bundle Sheath | 2 | 80 |
+| Vascular Tissue | 3 | 120 |
+| Palisade Mesophyll | 4 | 160 |
+| Spongy Mesophyll | 5 | 200 |
+| Air Space | 6 | 240 |
+
+To recover integer class indices from a seven-class label mask:
 
 ```python
 import numpy as np
 from PIL import Image
 
 label_img = Image.open("label.png").convert("L")
-class_index = np.array(label_img) // 50  # values 0–4
+class_index = np.array(label_img) // 40  # values 0–6; use // 50 for five-class masks
 ```
 
 For multi-page TIFF stacks, use the `tifffile` or `imageio` library to iterate through frames.
@@ -285,9 +301,11 @@ For multi-page TIFF stacks, use the `tifffile` or `imageio` library to iterate t
 
 ## 7. Model Information
 
-The application provides four interchangeable segmentation models, selectable from the **Segmentation Model** radio panel. All share the same input pipeline, 5-class output, and patch-based inference; they differ in architecture, size, and performance characteristics.
+Choose a segmentation tab first, then use its **Segmentation Model** radio panel. The **5 Classes** tab provides four interchangeable models with the same five output classes; they differ in architecture, size, and performance characteristics. The **7 Classes** tab provides a separately trained Mask2Former (Swin-B) model with seven output classes, described in Section 7.3. Both tabs use patch-based inference, with different intensity normalisation for each scheme.
 
 ### 7.1 Model Recommendations
+
+The following scores and recommendations apply to the **5 Classes** models. For the **7 Classes** model and its evaluation, see Section 7.3.
 
 | Model | Overall mIoU | Best for | Notes |
 |---|---|---|---|
@@ -300,6 +318,8 @@ The application provides four interchangeable segmentation models, selectable fr
 
 ### 7.2 Architecture Details
 
+**5-class models**
+
 | Model | Architecture | Backbone | Weights file | Approx. size |
 |---|---|---|---|---|
 | **Mask2Former (Swin-B)** | Mask2Former | Swin-Base (window 12) | `Mask2Former_SwinB.pth` | ~1.6 GB |
@@ -309,7 +329,7 @@ The application provides four interchangeable segmentation models, selectable fr
 
 ### 7.3 The 7-class model
 
-The **7 Classes** tab uses a Mask2Former (Swin-B) model with weights file `Mask2Former_SwinB_7class.pth` (~430 MB). It was trained with the datasets from [Leaf CT Hub](https://leafcthub.github.io/) as the base training data.
+The **7 Classes** tab uses a separately trained Mask2Former (Swin-B) model with weights file `Mask2Former_SwinB_7class.pth` (~430 MB). It predicts Background, Epidermis, Bundle Sheath, Vascular Tissue, Palisade Mesophyll, Spongy Mesophyll, and Air Space. Use this tab when you need separate labels for the vein tissues or the two mesophyll types. It was trained with the datasets from [Leaf CT Hub](https://leafcthub.github.io/) as the base training data.
 
 | Class | Held-out IoU |
 |---|---|

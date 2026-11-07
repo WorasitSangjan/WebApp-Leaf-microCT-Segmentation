@@ -234,6 +234,9 @@ SCHEMES = {
         suffix="-7",
         blurb=("<p><strong>7 classes:</strong> Background, Epidermis, Bundle Sheath, Vascular Tissue, "
                "Palisade Mesophyll, Spongy Mesophyll, Air Space.</p>"
+               "<p>This tab uses a separately trained <strong>Mask2Former (Swin-B)</strong> model. "
+               "Choose it when you need separate labels for Bundle Sheath and Vascular Tissue, "
+               "or for Palisade and Spongy Mesophyll.</p>"
                "<p><strong>Caution:</strong> Bundle Sheath and Vascular Tissue are often confused with each other, "
                "so their accuracy is lower when they are counted separately (IoU about 0.62 and 0.52 on held-out leaves). "
                "Counted together as one <em>Vein</em> class, the IoU rises to about 0.80. For measurements, use the "
@@ -1272,9 +1275,12 @@ with gr.Blocks(**blocks_kwargs) as demo:
         <img src="https://leafctwebapp.goatcounter.com/count?p=/huggingface-space&t=Leaf%20CT%20Segmentation%20Webapp"
              alt="" width="1" height="1" style="position:absolute; left:-9999px; width:1px; height:1px;">
         <h1>Leaf CT Scan Segmentation</h1>
-        <p>Automatic leaf CT scan segmentation with transformer-based models, in two versions: <strong>5 classes</strong>
-        (four models: EoMT/DINOv3, Mask2Former/Swin-B, SegFormer-B4, FPN/MiT-B4) and <strong>7 classes</strong>
-        (Mask2Former/Swin-B, with Bundle Sheath, Vascular Tissue, Palisade and Spongy Mesophyll as separate classes). Pick a tab below.</p>
+        <p>Automatically segment leaf micro-CT scans with transformer-based models. Choose a segmentation tab below:
+        <strong>5 Classes</strong> offers four models (Mask2Former/Swin-B, SegFormer-B4, EoMT/DINOv3, FPN/MiT-B4),
+        while <strong>7 Classes</strong> uses a separately trained <strong>Mask2Former (Swin-B)</strong> model.</p>
+        <p>The <strong>7-class model</strong> separates Vascular Region into <strong>Bundle Sheath</strong> and
+        <strong>Vascular Tissue</strong>, and Mesophyll into <strong>Palisade Mesophyll</strong> and
+        <strong>Spongy Mesophyll</strong>. Background, Epidermis, and Air Space are included in both versions.</p>
         <p><strong>Features:</strong> Upload a single image or a multi-slice TIFF stack to visualize tissue segmentation and export area statistics.
         &nbsp;·&nbsp; <a href="https://github.com/WorasitSangjan/WebApp-Leaf-microCT-Segmentation/blob/main/MANUAL.md" target="_blank">📖 User Manual</a></p>
         <div class="deployment-block">
